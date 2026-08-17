@@ -1,0 +1,19 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/followups",
+      "schedule": "*/30 * * * *"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/webhook/whatsapp",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        }
+      ]
+    }
+  ]
+}

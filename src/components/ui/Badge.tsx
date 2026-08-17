@@ -21,13 +21,13 @@ export function Badge({
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs border uppercase tracking-wider font-semibold',
+          'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] border uppercase tracking-wider font-bold',
           getTemperatureBadgeClass(temperature),
           className
         )}
         {...props}
       >
-        <span>{icon}</span>
+        <span className="text-[10px]">{icon}</span>
         <span>{temperature}</span>
       </span>
     );
@@ -37,7 +37,7 @@ export function Badge({
     return (
       <span
         className={cn(
-          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border capitalize font-medium',
+          'inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] border capitalize font-semibold tracking-wide',
           getStatusBadgeClass(status),
           className
         )}
@@ -51,7 +51,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700',
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/10 text-zinc-300 border border-white/10',
         className
       )}
       {...props}

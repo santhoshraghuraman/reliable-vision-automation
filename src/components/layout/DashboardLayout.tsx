@@ -11,16 +11,17 @@ export interface DashboardLayoutProps {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
+  onImportSuccess?: () => void;
 }
 
-export function DashboardLayout({ children, title, subtitle }: DashboardLayoutProps) {
+export function DashboardLayout({ children, title, subtitle, onImportSuccess }: DashboardLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
   const [isImportExcelOpen, setIsImportExcelOpen] = useState(false);
   const [isCreateCampaignOpen, setIsCreateCampaignOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased flex">
+    <div className="min-h-screen bg-[#07070B] text-zinc-100 font-sans antialiased flex">
       {/* Navigation Sidebar */}
       <Sidebar
         mobileOpen={mobileSidebarOpen}
@@ -52,6 +53,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       <ImportExcelModal
         isOpen={isImportExcelOpen}
         onClose={() => setIsImportExcelOpen(false)}
+        onImportSuccess={onImportSuccess}
       />
       <CreateCampaignModal
         isOpen={isCreateCampaignOpen}

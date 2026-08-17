@@ -17,6 +17,22 @@ export interface Lead {
   updatedAt: string;
   city?: string;
   notes?: string;
+  importBatchId?: string;
+  importBatchName?: string;
+  websiteUrl?: string;
+  websiteStatus?: 'UNKNOWN' | 'HAS_WEBSITE' | 'NO_WEBSITE' | 'ERROR';
+  websiteCheckedAt?: string;
+  websiteCheckError?: string;
+  eligibleForOutreach?: boolean;
+  eligibilityReason?: string;
+}
+
+export interface ImportBatch {
+  id: string;
+  filename: string;
+  totalRows: number;
+  validCount: number;
+  createdAt: string;
 }
 
 export type CampaignStatus = 'active' | 'paused' | 'completed' | 'draft';
