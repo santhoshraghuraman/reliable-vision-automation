@@ -76,3 +76,5 @@ npm run build
 ## 🔒 Security & Data Note
 - **No live API keys or secrets** are included.
 - Supabase, n8n, WhatsApp Cloud API, and OpenAI integrations remain disconnected until subsequent stage approvals.
+
+<!-- Deployment trigger 2026-08-18T01:07:27 -->
