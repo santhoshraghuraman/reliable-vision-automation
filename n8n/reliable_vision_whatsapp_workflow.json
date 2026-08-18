@@ -1,0 +1,132 @@
+{
+  "name": "Reliable Vision — WhatsApp Lead Automation (TEST MODE)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-qualification-trigger",
+        "options": {}
+      },
+      "name": "Webhook — Lead Qualification Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 300],
+      "id": "node-1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.CRM_BASE_URL || 'https://surge-into-collaboration-vessels.trycloudflare.com' }}/api/leads",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "status", "value": "HOT" },
+            { "name": "pageSize", "value": "10" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Fetch HOT Leads from CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [320, 300],
+      "id": "node-2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// TEST MODE ENFORCEMENT\nconst isTestMode = ($env.TEST_MODE || 'true') !== 'false';\nconst testPhone = $env.WHATSAPP_TEST_PHONE_NUMBER || '+919597482995';\n\nconst items = $input.all();\nconst output = [];\n\nfor (const item of items) {\n  const leads = item.json.leads || [item.json];\n  for (const lead of leads) {\n    if (isTestMode) {\n      // In TEST MODE, lock destination strictly to authorized test phone\n      output.push({\n        json: {\n          ...lead,\n          originalPhone: lead.phone,\n          targetPhone: testPhone,\n          isTestMode: true\n        }\n      });\n    } else {\n      output.push({\n        json: {\n          ...lead,\n          targetPhone: lead.phone,\n          isTestMode: false\n        }\n      });\n    }\n  }\n}\n\nreturn output;"
+      },
+      "name": "Enforce TEST MODE Safety",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [540, 300],
+      "id": "node-3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CRM_BASE_URL || 'https://surge-into-collaboration-vessels.trycloudflare.com' }}/api/automation/test-message",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"leadId\": \"{{ $json.id }}\"\n}",
+        "options": {}
+      },
+      "name": "Generate AI Sales Pitch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [760, 300],
+      "id": "node-4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CRM_BASE_URL || 'https://surge-into-collaboration-vessels.trycloudflare.com' }}/api/automation/send",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"leadId\": \"{{ $json.lead.id }}\",\n  \"destinationPhone\": \"{{ $('Enforce TEST MODE Safety').item.json.targetPhone }}\",\n  \"messageText\": \"{{ $json.messageText }}\"\n}",
+        "options": {}
+      },
+      "name": "Dispatch via WhatsApp API (TEST ONLY)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [980, 300],
+      "id": "node-5"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inbound-webhook",
+        "options": {}
+      },
+      "name": "Inbound WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 520],
+      "id": "node-6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CRM_BASE_URL || 'https://surge-into-collaboration-vessels.trycloudflare.com' }}/api/whatsapp/webhook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Sync Inbound Reply to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [360, 520],
+      "id": "node-7"
+    }
+  ],
+  "connections": {
+    "Webhook — Lead Qualification Trigger": {
+      "main": [
+        [{ "node": "Fetch HOT Leads from CRM", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch HOT Leads from CRM": {
+      "main": [
+        [{ "node": "Enforce TEST MODE Safety", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enforce TEST MODE Safety": {
+      "main": [
+        [{ "node": "Generate AI Sales Pitch", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate AI Sales Pitch": {
+      "main": [
+        [{ "node": "Dispatch via WhatsApp API (TEST ONLY)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Inbound WhatsApp Webhook": {
+      "main": [
+        [{ "node": "Sync Inbound Reply to CRM", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
