@@ -222,8 +222,8 @@ export async function sendWhatsAppMessage(params: {
                 {
                   type: 'body',
                   parameters: [
-                    { type: 'text', text: customerName },
-                    { type: 'text', text: messageText }
+                    { type: 'text', parameter_name: 'customer_name', text: customerName },
+                    { type: 'text', parameter_name: 'personalized_message', text: messageText }
                   ]
                 }
               ]
