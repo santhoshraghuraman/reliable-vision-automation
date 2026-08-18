@@ -205,6 +205,10 @@ export async function sendWhatsAppMessage(params: {
           console.warn('[sendWhatsAppMessage] Could not fetch lead name for template, using fallback', e)
         }
       }
+      const sanitizedMessageText = messageText
+        .replace(/[\r\n\t]+/g, ' ')
+        .replace(/ {5,}/g, ' ')
+        .trim();
 
       const isTemplate = config.isTestMode;
       const payload = isTemplate
@@ -223,7 +227,7 @@ export async function sendWhatsAppMessage(params: {
                   type: 'body',
                   parameters: [
                     { type: 'text', parameter_name: 'customer_name', text: customerName },
-                    { type: 'text', parameter_name: 'personalized_message', text: messageText }
+                    { type: 'text', parameter_name: 'personalized_message', text: sanitizedMessageText }
                   ]
                 }
               ]

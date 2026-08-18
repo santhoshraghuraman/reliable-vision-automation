@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { ImportResult } from '@/lib/types'
 import { isAuthorizedApiRequest } from '@/lib/api-auth'
+import { dispatchToN8n } from '@/services/webhook.service'
+import crypto from 'crypto'
 
 interface LeadInsert {
   name: string
@@ -50,6 +52,7 @@ export async function POST(request: NextRequest) {
     const batchSize = 100
     let imported = 0
     const errors: string[] = []
+    const importedLeadIds: string[] = []
 
     for (let i = 0; i < leads.length; i += batchSize) {
       const batch = leads.slice(i, i + batchSize)
@@ -64,7 +67,19 @@ export async function POST(request: NextRequest) {
         errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error.message}`)
       } else {
         imported += data?.length ?? 0
+        if (data) {
+          importedLeadIds.push(...data.map((d) => d.id))
+        }
       }
+    }
+
+    if (imported > 0 && importedLeadIds.length > 0) {
+      // Fire-and-forget webhook dispatch to n8n
+      dispatchToN8n('lead_imported', {
+        batchId: crypto.randomUUID(),
+        importedCount: imported,
+        leadIds: importedLeadIds,
+      })
     }
 
     const result: ImportResult = {
