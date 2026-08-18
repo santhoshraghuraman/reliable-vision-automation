@@ -177,7 +177,7 @@ export async function sendWhatsAppMessage(params: {
     }
   }
 
-  // 3. Dispatch message via Meta API if credentials exist, otherwise Mock Simulated Dispatch
+      // 3. Dispatch message via Meta API if credentials exist, otherwise Mock Simulated Dispatch
   let providerMessageId: string | null = null
   let deliveryStatus = 'SENT'
   let isSimulated = false
@@ -190,6 +190,22 @@ export async function sendWhatsAppMessage(params: {
       const token = process.env.WHATSAPP_ACCESS_TOKEN
       const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`
 
+      let customerName = 'Customer'
+      if (config.isTestMode) {
+        try {
+          const { data: lead } = await supabase
+            .from('leads')
+            .select('name')
+            .eq('id', leadId)
+            .single()
+          if (lead?.name) {
+            customerName = lead.name
+          }
+        } catch (e) {
+          console.warn('[sendWhatsAppMessage] Could not fetch lead name for template, using fallback', e)
+        }
+      }
+
       const isTemplate = config.isTestMode;
       const payload = isTemplate
         ? {
@@ -198,10 +214,19 @@ export async function sendWhatsAppMessage(params: {
             to: normalizedDestination.replace('+', '').replace(/\D/g, ''),
             type: 'template',
             template: {
-              name: 'hello_world',
+              name: 'reliable_vision_outreach_v3',
               language: {
-                code: 'en_US',
+                code: 'en',
               },
+              components: [
+                {
+                  type: 'body',
+                  parameters: [
+                    { type: 'text', text: customerName },
+                    { type: 'text', text: messageText }
+                  ]
+                }
+              ]
             },
           }
         : {
@@ -212,7 +237,7 @@ export async function sendWhatsAppMessage(params: {
             text: { preview_url: false, body: messageText },
           };
 
-      console.log(`[sendWhatsAppMessage] Sending ${isTemplate ? 'template (hello_world)' : 'text'} to ${normalizedDestination}`);
+      console.log(`[sendWhatsAppMessage] Sending ${isTemplate ? 'template (reliable_vision_outreach_v3)' : 'text'} to ${normalizedDestination}`);
 
       const res = await fetch(url, {
         method: 'POST',
