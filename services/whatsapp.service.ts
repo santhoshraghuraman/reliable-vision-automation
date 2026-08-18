@@ -190,13 +190,29 @@ export async function sendWhatsAppMessage(params: {
       const token = process.env.WHATSAPP_ACCESS_TOKEN
       const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`
 
-      const payload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: normalizedDestination.replace('+', '').replace(/\D/g, ''),
-        type: 'text',
-        text: { preview_url: false, body: messageText },
-      }
+      const isTemplate = config.isTestMode;
+      const payload = isTemplate
+        ? {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: normalizedDestination.replace('+', '').replace(/\D/g, ''),
+            type: 'template',
+            template: {
+              name: 'hello_world',
+              language: {
+                code: 'en_US',
+              },
+            },
+          }
+        : {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: normalizedDestination.replace('+', '').replace(/\D/g, ''),
+            type: 'text',
+            text: { preview_url: false, body: messageText },
+          };
+
+      console.log(`[sendWhatsAppMessage] Sending ${isTemplate ? 'template (hello_world)' : 'text'} to ${normalizedDestination}`);
 
       const res = await fetch(url, {
         method: 'POST',
@@ -213,6 +229,7 @@ export async function sendWhatsAppMessage(params: {
         deliveryStatus = 'SENT'
         isSimulated = false
         sendSuccess = true
+        console.log(`[sendWhatsAppMessage] Meta API accepted request. HTTP 200 OK. WAMID: ${providerMessageId}`);
       } else {
         const errJson = (await res.json().catch(() => ({}))) as {
           error?: { message?: string; error_data?: { details?: string }; type?: string; code?: number }
