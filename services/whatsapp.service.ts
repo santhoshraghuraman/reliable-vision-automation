@@ -299,7 +299,7 @@ export async function sendWhatsAppMessage(params: {
   }
 
   // 4. Save to public.messages
-  const { data: savedMsg } = await supabase
+  const { data: savedMsg, error: insertError } = await supabase
     .from('messages')
     .insert({
       conversation_id: conversationId,
@@ -309,10 +309,14 @@ export async function sendWhatsAppMessage(params: {
       message_text: messageText,
       provider: 'whatsapp',
       provider_message_id: providerMessageId,
-      delivery_status: deliveryStatus,
+      delivery_status: deliveryStatus === 'ACCEPTED' ? 'PENDING' : deliveryStatus,
     })
     .select()
     .single()
+
+  if (insertError) {
+    console.error('[sendWhatsAppMessage] Failed to save message to DB:', insertError)
+  }
 
   // 5. Update lead last_contacted_at if message was sent or attempted
   await supabase
@@ -343,6 +347,7 @@ export async function sendWhatsAppMessage(params: {
   return {
     success: sendSuccess,
     messageId: savedMsg?.id || providerMessageId || 'failed',
+    providerMessageId,
     conversationId,
     deliveryStatus,
     isTestMode: config.isTestMode,
@@ -718,18 +723,22 @@ export async function processWhatsAppStatusUpdate(params: {
   const currentStatus = (currentMsg?.delivery_status || 'QUEUED').toUpperCase().split(':')[0]
   let dbStatus = incomingStatus
 
+  console.log(`[processWhatsAppStatusUpdate] Provider ID: ${providerMessageId}, Incoming: ${incomingStatus}, Current DB: ${currentMsg?.delivery_status}, Parsed Current: ${currentStatus}`);
+  console.log(`Priority Check: Incoming(${STATUS_PRIORITY[incomingStatus] ?? 0}) < Current(${STATUS_PRIORITY[currentStatus] ?? 0})`);
+
   // Enforce Monotonic Progression: Do not downgrade status
   if ((STATUS_PRIORITY[incomingStatus] ?? 0) < (STATUS_PRIORITY[currentStatus] ?? 0)) {
     dbStatus = currentMsg?.delivery_status || currentStatus
+    console.log(`Downgrade prevented. Keeping status: ${dbStatus}`);
   }
 
-  // Append error details if FAILED
+  let errorDetail = null
+  // Capture error details if FAILED (for audit log, without breaking DB constraints)
   if (incomingStatus === 'FAILED' && params.errors && params.errors.length > 0) {
     try {
-      const errorDetail = (params.errors[0] as any)?.title || JSON.stringify(params.errors)
-      dbStatus = `FAILED: ${errorDetail}`
+      errorDetail = (params.errors[0] as any)?.title || JSON.stringify(params.errors)
     } catch {
-      dbStatus = 'FAILED'
+      // Ignored
     }
   }
 
@@ -754,6 +763,7 @@ export async function processWhatsAppStatusUpdate(params: {
         provider_message_id: providerMessageId,
         status: dbStatus,
         conversation_id: updatedMsg.conversation_id,
+        error_detail: errorDetail
       },
       actor: 'whatsapp-status-webhook',
     })
@@ -763,6 +773,6 @@ export async function processWhatsAppStatusUpdate(params: {
     success: !updateErr,
     messageId: updatedMsg?.id || null,
     status: dbStatus,
-    error: updateErr?.message || null,
+    error: updateErr?.message || errorDetail || null,
   }
 }
