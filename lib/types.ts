@@ -189,6 +189,7 @@ export interface AutomationStatus {
 export interface WhatsAppSendResult {
   success: boolean
   messageId?: string
+  providerMessageId?: string | null
   conversationId?: string
   deliveryStatus: string
   isTestMode: boolean
