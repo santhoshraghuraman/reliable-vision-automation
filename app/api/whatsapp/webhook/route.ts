@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.text()
+    const arrayBuffer = await request.arrayBuffer()
+    const rawBodyBuffer = Buffer.from(arrayBuffer)
+    const rawBody = rawBodyBuffer.toString('utf8')
     
     // Verify Webhook Signature (if APP_SECRET is configured)
     const appSecret = process.env.WHATSAPP_APP_SECRET
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
       }
       
       const hmac = crypto.createHmac('sha256', appSecret)
-      const digest = Buffer.from('sha256=' + hmac.update(rawBody).digest('hex'), 'utf8')
+      const digest = Buffer.from('sha256=' + hmac.update(rawBodyBuffer).digest('hex'), 'utf8')
       const checksum = Buffer.from(signature, 'utf8')
       
       if (checksum.length !== digest.length || !crypto.timingSafeEqual(digest, checksum)) {
