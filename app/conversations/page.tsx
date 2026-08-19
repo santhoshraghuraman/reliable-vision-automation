@@ -23,6 +23,10 @@ import {
   Snowflake,
   AlertTriangle,
   CheckCircle2,
+  Check,
+  XCircle,
+  Clock,
+  Ban,
   Edit3,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -138,8 +142,24 @@ export default function ConversationsPage() {
     }
 
     loadMessagesAndAI()
+
+    // Add polling interval for delivery status updates (every 5 seconds)
+    const interval = setInterval(async () => {
+      if (!active || !selectedId) return
+      try {
+        const msgRes = await fetch(`/api/conversations/${selectedId}/messages`)
+        const msgData = await msgRes.json()
+        if (active && msgData.messages) {
+          setMessages(msgData.messages)
+        }
+      } catch {
+        // Silent catch for background polling
+      }
+    }, 5000)
+
     return () => {
       active = false
+      clearInterval(interval)
     }
   }, [selectedId])
 
@@ -226,6 +246,30 @@ export default function ConversationsPage() {
         return { label: 'Negative Sentiment', color: 'bg-red-500/20 text-red-300 border-red-500/40' }
       default:
         return { label: 'General Message', color: 'bg-gray-700/30 text-gray-300 border-gray-600/30' }
+    }
+  }
+
+  const getDeliveryBadge = (status: string) => {
+    const s = status.toUpperCase()
+    if (s.startsWith('FAILED')) {
+      return { icon: <XCircle className="w-3 h-3 text-red-500" />, text: 'FAILED', color: 'text-red-400' }
+    }
+    switch (s) {
+      case 'QUEUED':
+      case 'PROCESSING':
+        return { icon: <Clock className="w-3 h-3 text-gray-500" />, text: s, color: 'text-gray-400' }
+      case 'ACCEPTED':
+        return { icon: <Check className="w-3 h-3 text-gray-400" />, text: 'ACCEPTED', color: 'text-gray-400' }
+      case 'SENT':
+        return { icon: <Check className="w-3 h-3 text-emerald-500" />, text: 'SENT', color: 'text-emerald-400' }
+      case 'DELIVERED':
+        return { icon: <CheckCheck className="w-3 h-3 text-emerald-500" />, text: 'DELIVERED', color: 'text-emerald-400' }
+      case 'READ':
+        return { icon: <CheckCheck className="w-3 h-3 text-blue-400" />, text: 'READ', color: 'text-blue-400' }
+      case 'BLOCKED_TEST_MODE':
+        return { icon: <Ban className="w-3 h-3 text-amber-500" />, text: 'BLOCKED (TEST MODE)', color: 'text-amber-400' }
+      default:
+        return { icon: <Check className="w-3 h-3 text-gray-500" />, text: s, color: 'text-gray-400' }
     }
   }
 
@@ -485,9 +529,9 @@ export default function ConversationsPage() {
 
                         {/* Delivery Meta */}
                         {!isInbound && msg.delivery_status && (
-                          <div className="flex items-center gap-1 text-[10px] text-emerald-400/80 mt-1 px-1">
-                            <CheckCheck className="w-3 h-3" />
-                            <span>{msg.delivery_status}</span>
+                          <div className={`flex items-center gap-1 text-[10px] mt-1 px-1 ${getDeliveryBadge(msg.delivery_status).color}`}>
+                            {getDeliveryBadge(msg.delivery_status).icon}
+                            <span title={msg.delivery_status}>{getDeliveryBadge(msg.delivery_status).text}</span>
                           </div>
                         )}
                       </div>

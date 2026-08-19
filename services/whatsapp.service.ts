@@ -177,9 +177,23 @@ export async function sendWhatsAppMessage(params: {
     }
   }
 
-      // 3. Dispatch message via Meta API if credentials exist, otherwise Mock Simulated Dispatch
+  // 3. Check Customer Service Window (24h)
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { data: recentInbound } = await supabase
+    .from('messages')
+    .select('created_at')
+    .eq('lead_id', leadId)
+    .eq('direction', 'INBOUND')
+    .gte('created_at', twentyFourHoursAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const isWindowOpen = !!recentInbound
+
+  // 4. Dispatch message via Meta API if credentials exist, otherwise Mock Simulated Dispatch
   let providerMessageId: string | null = null
-  let deliveryStatus = 'SENT'
+  let deliveryStatus = 'ACCEPTED'
   let isSimulated = false
   let metaErrorDetail: string | null = null
   let sendSuccess = true
@@ -210,7 +224,7 @@ export async function sendWhatsAppMessage(params: {
         .replace(/ {5,}/g, ' ')
         .trim();
 
-      const isTemplate = config.isTestMode;
+      const isTemplate = config.isTestMode || !isWindowOpen;
       const payload = isTemplate
         ? {
             messaging_product: 'whatsapp',
@@ -255,7 +269,7 @@ export async function sendWhatsAppMessage(params: {
       if (res.ok) {
         const json = await res.json()
         providerMessageId = json.messages?.[0]?.id || null
-        deliveryStatus = 'SENT'
+        deliveryStatus = 'ACCEPTED'
         isSimulated = false
         sendSuccess = true
         console.log(`[sendWhatsAppMessage] Meta API accepted request. HTTP 200 OK. WAMID: ${providerMessageId}`);
@@ -279,7 +293,7 @@ export async function sendWhatsAppMessage(params: {
   } else {
     // Simulated sandbox mode only when no credentials exist
     providerMessageId = `mock_wa_${Date.now()}`
-    deliveryStatus = 'SENT'
+    deliveryStatus = 'ACCEPTED'
     isSimulated = true
     sendSuccess = true
   }
@@ -673,9 +687,19 @@ export async function processWhatsAppStatusUpdate(params: {
   const { providerMessageId, status, rawPayload } = params
   const supabase = getSupabaseAdmin()
 
+  const STATUS_PRIORITY: Record<string, number> = {
+    'QUEUED': 0,
+    'PROCESSING': 1,
+    'ACCEPTED': 2,
+    'PENDING': 2,
+    'SENT': 3,
+    'DELIVERED': 4,
+    'READ': 5,
+    'FAILED': 6,
+  }
+
   const normalizedStatus = (status || '').toUpperCase()
-  const validStatuses = ['SENT', 'DELIVERED', 'READ', 'FAILED', 'PENDING']
-  const dbStatus = validStatuses.includes(normalizedStatus) ? normalizedStatus : 'SENT'
+  const incomingStatus = Object.keys(STATUS_PRIORITY).includes(normalizedStatus) ? normalizedStatus : 'SENT'
 
   // 1. Record webhook status event
   await supabase.from('webhook_events').insert({
@@ -683,6 +707,31 @@ export async function processWhatsAppStatusUpdate(params: {
     payload: rawPayload || params,
     processed: true,
   })
+
+  // 1.5 Fetch current message status
+  const { data: currentMsg } = await supabase
+    .from('messages')
+    .select('delivery_status, id')
+    .eq('provider_message_id', providerMessageId)
+    .maybeSingle()
+
+  const currentStatus = (currentMsg?.delivery_status || 'QUEUED').toUpperCase().split(':')[0]
+  let dbStatus = incomingStatus
+
+  // Enforce Monotonic Progression: Do not downgrade status
+  if ((STATUS_PRIORITY[incomingStatus] ?? 0) < (STATUS_PRIORITY[currentStatus] ?? 0)) {
+    dbStatus = currentMsg?.delivery_status || currentStatus
+  }
+
+  // Append error details if FAILED
+  if (incomingStatus === 'FAILED' && params.errors && params.errors.length > 0) {
+    try {
+      const errorDetail = (params.errors[0] as any)?.title || JSON.stringify(params.errors)
+      dbStatus = `FAILED: ${errorDetail}`
+    } catch {
+      dbStatus = 'FAILED'
+    }
+  }
 
   // 2. Update message record in public.messages
   const { data: updatedMsg, error: updateErr } = await supabase
