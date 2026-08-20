@@ -64,7 +64,7 @@ export interface AuditLog {
   created_at: string
 }
 
-export type CampaignStatus = 'DRAFT' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'draft' | 'active' | 'paused' | 'completed'
+export type CampaignStatus = 'DRAFT' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'draft' | 'active' | 'paused' | 'completed' | 'running' | 'failed'
 
 export interface CampaignMetadata {
   filter_category?: string | null

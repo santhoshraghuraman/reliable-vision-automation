@@ -59,20 +59,11 @@ export default function CampaignsPage() {
   // Launch / Results state (Step 3)
   const [launching, setLaunching] = useState(false)
   const [launchResult, setLaunchResult] = useState<{
-    totalProcessed: number
-    sentCount: number
-    deliveredCount: number
-    failedCount: number
-    blockedCount: number
-    isTestMode: boolean
-    results: Array<{
-      leadId: string
-      leadName: string
-      phone: string
-      status: string
-      wamid?: string | null
-      error?: string | null
-    }>
+    success: boolean
+    campaignId: string
+    queuedCount: number
+    status: string
+    error: string | null
   } | null>(null)
 
   // Load campaigns list & categories
@@ -241,7 +232,7 @@ export default function CampaignsPage() {
       setLaunchResult(data)
       setStep(3)
       loadInitialData()
-      toast.success(`Campaign executed! ${data.sentCount} messages dispatched safely.`)
+      toast.success(`Campaign queued successfully! ${data.queuedCount ?? 0} leads pending dispatch.`)
     } catch (err) {
       toast.error((err as Error).message)
     } finally {
@@ -877,79 +868,22 @@ export default function CampaignsPage() {
               </div>
             )}
 
-            {/* STEP 3: LIVE DISPATCH RESULTS & AUDIT */}
+            {/* STEP 3: QUEUE DISPATCH RESULTS */}
             {step === 3 && launchResult && (
               <div className="space-y-6">
-                {/* Result Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                    <p className="text-xs text-gray-400 font-medium">Total Processed</p>
-                    <p className="text-2xl font-bold text-gray-100">{launchResult.totalProcessed}</p>
-                  </div>
-
-                  <div className="bg-gray-900 border border-emerald-500/20 rounded-xl p-4 bg-emerald-950/10">
-                    <p className="text-xs text-emerald-400 font-medium">Successfully Sent</p>
-                    <p className="text-2xl font-bold text-emerald-300">{launchResult.sentCount}</p>
-                  </div>
-
-                  <div className="bg-gray-900 border border-rose-500/20 rounded-xl p-4 bg-rose-950/10">
-                    <p className="text-xs text-rose-400 font-medium">Failed</p>
-                    <p className="text-2xl font-bold text-rose-300">{launchResult.failedCount}</p>
-                  </div>
-
-                  <div className="bg-gray-900 border border-amber-500/20 rounded-xl p-4 bg-amber-950/10">
-                    <p className="text-xs text-amber-400 font-medium">Blocked (Opt-Out)</p>
-                    <p className="text-2xl font-bold text-amber-300">{launchResult.blockedCount}</p>
-                  </div>
-                </div>
-
-                {/* Per-Lead Dispatch Log Table */}
-                <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-xl">
-                  <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-200">Dispatch Audit Log</h3>
-                      <p className="text-xs text-gray-500">Every message is logged with its Meta WAMID</p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={resetWizard}>
+                <div className="bg-gray-900 border border-emerald-500/20 rounded-xl p-8 bg-emerald-950/10 text-center">
+                  <h3 className="text-xl font-bold text-emerald-400 mb-2">Campaign Queued Successfully</h3>
+                  <p className="text-gray-300">
+                    Successfully queued <span className="font-bold text-white">{launchResult.queuedCount ?? 0}</span> leads for dispatch.
+                  </p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    The background worker is now processing the queue. You can monitor the live delivery metrics from the Campaigns list.
+                  </p>
+                  
+                  <div className="mt-8">
+                    <Button onClick={resetWizard}>
                       Back to Campaigns
                     </Button>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-gray-950/60 text-gray-400 border-b border-gray-800 uppercase tracking-wider font-semibold">
-                        <tr>
-                          <th className="py-3.5 px-6">Lead</th>
-                          <th className="py-3.5 px-4">Destination Phone</th>
-                          <th className="py-3.5 px-4">Status</th>
-                          <th className="py-3.5 px-4">Provider Message ID / Error</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800 text-gray-300">
-                        {launchResult.results.map((r, idx) => (
-                          <tr key={idx} className="hover:bg-gray-800/40">
-                            <td className="py-3.5 px-6 font-medium text-gray-100">{r.leadName}</td>
-                            <td className="py-3.5 px-4 font-mono text-gray-400">{r.phone}</td>
-                            <td className="py-3.5 px-4">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-semibold text-[11px] ${
-                                  r.status === 'SENT'
-                                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                                    : r.status === 'BLOCKED_OPTED_OUT'
-                                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                                    : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                                }`}
-                              >
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-gray-500 truncate max-w-xs">
-                              {r.wamid || r.error || '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 </div>
               </div>

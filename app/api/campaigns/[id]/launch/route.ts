@@ -30,12 +30,17 @@ export async function POST(
       return NextResponse.json({ error: `Campaign must be 'active' (approved) to launch, currently: ${campaign.status}` }, { status: 400 })
     }
 
-    // 1. Mark campaign RUNNING
+    // 1. Mark campaign running
     const startedAt = new Date().toISOString()
-    await updateCampaignProgress(id, {
-      status: 'RUNNING',
+    const updateRes = await updateCampaignProgress(id, {
+      status: 'running',
       started_at: startedAt,
     })
+
+    if (!updateRes.success) {
+      console.error('[launch] Failed to update campaign status:', updateRes.error)
+      return NextResponse.json({ error: 'Failed to update campaign status to running' }, { status: 500 })
+    }
 
     // 2. Fetch eligible leads
     const { leads } = await getCampaignEligibleLeads({
