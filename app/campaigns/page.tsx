@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Campaign, CampaignLeadPreview, LeadStatus } from '@/lib/types'
+import { Campaign, CampaignLeadPreview, LeadStatus, Lead } from '@/lib/types'
 import {
   Megaphone,
   Sparkles,
@@ -43,6 +43,11 @@ export default function CampaignsPage() {
   const [targetCount, setTargetCount] = useState(0)
   const [calculatingCount, setCalculatingCount] = useState(false)
 
+  // Manual selection state
+  const [isManualSelection, setIsManualSelection] = useState(false)
+  const [availableLeads, setAvailableLeads] = useState<Lead[]>([])
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
+
   // Preview state (Step 2)
   const [loadingPreviews, setLoadingPreviews] = useState(false)
   const [previews, setPreviews] = useState<CampaignLeadPreview[]>([])
@@ -74,15 +79,18 @@ export default function CampaignsPage() {
   const loadInitialData = async () => {
     setLoadingCampaigns(true)
     try {
-      const [campRes, catRes] = await Promise.all([
+      const [campRes, catRes, leadsRes] = await Promise.all([
         fetch('/api/campaigns'),
         fetch('/api/leads/categories'),
+        fetch('/api/leads?pageSize=50')
       ])
       const campJson = await campRes.json()
       const catJson = await catRes.json()
+      const leadsJson = await leadsRes.json()
 
       if (campJson.campaigns) setCampaigns(campJson.campaigns)
       if (catJson.categories) setCategories(catJson.categories)
+      if (leadsJson.leads) setAvailableLeads(leadsJson.leads)
     } catch {
       toast.error('Failed to load campaigns')
     } finally {
@@ -97,6 +105,11 @@ export default function CampaignsPage() {
   // Calculate matching leads whenever filters change in Step 1
   useEffect(() => {
     if (viewMode !== 'WIZARD' || step !== 1) return
+    if (isManualSelection) {
+      setTargetCount(selectedLeadIds.length)
+      return
+    }
+
     let active = true
     async function calculate() {
       setCalculatingCount(true)
@@ -121,7 +134,7 @@ export default function CampaignsPage() {
     return () => {
       active = false
     }
-  }, [selectedCategory, selectedStatus, viewMode, step])
+  }, [selectedCategory, selectedStatus, viewMode, step, isManualSelection, selectedLeadIds])
 
   // Step 1 -> Step 2: Create draft campaign & load previews
   const handleProceedToPreview = async () => {
@@ -138,10 +151,11 @@ export default function CampaignsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: campaignName.trim(),
-          filterCategory: selectedCategory !== 'ALL' ? selectedCategory : undefined,
-          filterStatus: selectedStatus !== 'ALL' ? selectedStatus : undefined,
+          filterCategory: isManualSelection ? undefined : (selectedCategory !== 'ALL' ? selectedCategory : undefined),
+          filterStatus: isManualSelection ? undefined : (selectedStatus !== 'ALL' ? selectedStatus : undefined),
+          selectedLeadIds: isManualSelection ? selectedLeadIds : undefined,
           ratePerMinute,
-          targetCount,
+          targetCount: isManualSelection ? selectedLeadIds.length : targetCount,
         }),
       })
 
@@ -158,8 +172,9 @@ export default function CampaignsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          category: selectedCategory !== 'ALL' ? selectedCategory : undefined,
-          status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
+          category: isManualSelection ? undefined : (selectedCategory !== 'ALL' ? selectedCategory : undefined),
+          status: isManualSelection ? undefined : (selectedStatus !== 'ALL' ? selectedStatus : undefined),
+          selectedLeadIds: isManualSelection ? selectedLeadIds : undefined,
           limit: batchSize,
         }),
       })
@@ -587,7 +602,7 @@ export default function CampaignsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Campaign Name */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 col-span-1 md:col-span-2">
                     <label className="text-xs font-semibold text-gray-300">Campaign Name *</label>
                     <Input
                       placeholder="e.g. Interior Designers Website Outreach Q3"
@@ -596,7 +611,61 @@ export default function CampaignsPage() {
                     />
                   </div>
 
-                  {/* Category Filter */}
+                  {/* Manual Lead Selection Toggle */}
+                  <div className="col-span-1 md:col-span-2 flex items-center justify-between border-t border-gray-800 pt-6 pb-2">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-200">Manual Lead Selection</h4>
+                      <p className="text-xs text-gray-500">Pick exact leads instead of filtering by category/status</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={isManualSelection}
+                        onChange={(e) => {
+                          setIsManualSelection(e.target.checked)
+                          if (!e.target.checked) setSelectedLeadIds([])
+                        }}
+                      />
+                      <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  {isManualSelection ? (
+                    <div className="col-span-1 md:col-span-2 space-y-4">
+                      {selectedLeadIds.length > 10 && (
+                        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 text-red-400 text-xs font-semibold flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          {selectedLeadIds.length} leads selected. Test Mode allows a maximum of 10 recipients per batch. Please reduce your selection to 10 or fewer.
+                        </div>
+                      )}
+                      <div className="max-h-60 overflow-y-auto rounded-lg border border-gray-800 bg-gray-950/50">
+                        {availableLeads.map(lead => (
+                          <label key={lead.id} className="flex items-center gap-3 p-3 hover:bg-gray-900 border-b border-gray-800 cursor-pointer transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={selectedLeadIds.includes(lead.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedLeadIds(prev => [...prev, lead.id])
+                                else setSelectedLeadIds(prev => prev.filter(id => id !== lead.id))
+                              }}
+                              className="w-4 h-4 rounded border-gray-700 text-indigo-600 focus:ring-indigo-600 bg-gray-900"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-200 truncate">{lead.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{lead.business || 'No Business'} • {lead.category || 'No Category'}</p>
+                            </div>
+                            <div className="text-xs text-gray-400">{lead.phone}</div>
+                          </label>
+                        ))}
+                        {availableLeads.length === 0 && (
+                          <div className="p-4 text-center text-xs text-gray-500">No recent leads found.</div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Category Filter */}
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-300">Lead Category</label>
                     <select
@@ -627,6 +696,8 @@ export default function CampaignsPage() {
                       <option value="WARM">WARM</option>
                     </select>
                   </div>
+                  </>
+                  )}
 
                   {/* Dispatch Rate */}
                   <div className="space-y-2">
@@ -646,17 +717,17 @@ export default function CampaignsPage() {
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-300 flex items-center justify-between">
                       <span>Test Batch Size</span>
-                      <span className="text-[10px] text-amber-400 font-mono">1 to 3 in Test Mode</span>
+                      <span className="text-[10px] text-amber-400 font-mono">1 to 10 in Test Mode</span>
                     </label>
                     <Input
                       type="number"
                       min={1}
-                      max={3}
+                      max={10}
                       value={batchSize}
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10)
                         if (isNaN(val)) setBatchSize(1)
-                        else setBatchSize(Math.min(Math.max(1, val), 3))
+                        else setBatchSize(Math.min(Math.max(1, val), 10))
                       }}
                     />
                   </div>
@@ -670,7 +741,7 @@ export default function CampaignsPage() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-gray-200">
-                        {calculatingCount ? 'Calculating matching leads...' : `${targetCount} Eligible Leads Found`}
+                        {calculatingCount ? 'Calculating matching leads...' : (isManualSelection ? `${selectedLeadIds.length} Selected Leads` : `${targetCount} Eligible Leads Found`)}
                       </p>
                       <p className="text-[11px] text-gray-500">
                         Opted-out leads and ineligible records are automatically excluded.
@@ -686,7 +757,7 @@ export default function CampaignsPage() {
                       variant="primary"
                       size="sm"
                       onClick={handleProceedToPreview}
-                      disabled={loadingPreviews || calculatingCount || targetCount === 0 || !campaignName.trim()}
+                      disabled={loadingPreviews || calculatingCount || targetCount === 0 || !campaignName.trim() || (isManualSelection && selectedLeadIds.length > 10)}
                       icon={<ArrowRight className="w-4 h-4" />}
                     >
                       {loadingPreviews ? 'Generating AI Previews...' : 'Generate Previews →'}

@@ -69,6 +69,7 @@ export type CampaignStatus = 'DRAFT' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'CAN
 export interface CampaignMetadata {
   filter_category?: string | null
   filter_status?: string | null
+  selected_lead_ids?: string[]
   rate_per_minute?: number
   target_count?: number
   sent_count?: number
@@ -87,6 +88,7 @@ export interface Campaign {
   message_template?: string | null
   filter_category?: string | null
   filter_status?: string | null
+  selected_lead_ids?: string[]
   rate_per_minute?: number
   target_count?: number
   sent_count?: number

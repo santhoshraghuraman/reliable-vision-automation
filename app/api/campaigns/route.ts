@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const body = await request.json().catch(() => ({}))
-    const { name, description, filterCategory, filterStatus, ratePerMinute, targetCount, template } = body
+    const { name, description, filterCategory, filterStatus, selectedLeadIds, ratePerMinute, targetCount, template } = body
 
     if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 })
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       description,
       filterCategory,
       filterStatus,
+      selectedLeadIds: Array.isArray(selectedLeadIds) ? selectedLeadIds : undefined,
       ratePerMinute: typeof ratePerMinute === 'number' ? ratePerMinute : 3,
       targetCount: typeof targetCount === 'number' ? targetCount : 0,
       template,

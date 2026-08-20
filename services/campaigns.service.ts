@@ -24,10 +24,11 @@ export function parseCampaignRecord(record: Record<string, unknown>): Campaign {
     id: record.id as string,
     name: record.name as string,
     description: (record.description as string) || null,
-    status: (record.status as Campaign['status']) || 'DRAFT',
+    status: (record.status as Campaign['status']) || 'draft',
     message_template: (record.message_template as string) || null,
     filter_category: meta.filter_category || (record.filter_category as string) || null,
     filter_status: meta.filter_status || (record.filter_status as string) || null,
+    selected_lead_ids: meta.selected_lead_ids,
     rate_per_minute: meta.rate_per_minute || (record.rate_per_minute as number) || 3,
     target_count: meta.target_count || (record.target_count as number) || 0,
     sent_count: meta.sent_count || (record.sent_count as number) || 0,
@@ -91,6 +92,7 @@ export async function createCampaign(params: {
   ratePerMinute?: number
   targetCount?: number
   template?: string
+  selectedLeadIds?: string[]
 }): Promise<{ campaign: Campaign | null; error: string | null }> {
   try {
     const supabase = getSupabaseAdmin()
@@ -98,6 +100,7 @@ export async function createCampaign(params: {
     const meta: CampaignMetadata = {
       filter_category: params.filterCategory || null,
       filter_status: params.filterStatus || 'ALL',
+      selected_lead_ids: params.selectedLeadIds,
       rate_per_minute: params.ratePerMinute || 3,
       target_count: params.targetCount || 0,
       sent_count: 0,
@@ -109,7 +112,7 @@ export async function createCampaign(params: {
     const payload: Record<string, unknown> = {
       name: params.name,
       description: params.description || `Target: ${params.filterCategory || 'All Categories'} (${params.filterStatus || 'All'})`,
-      status: 'DRAFT',
+      status: 'draft',
       message_template: JSON.stringify(meta),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -190,6 +193,7 @@ export async function updateCampaignProgress(
 export async function getCampaignEligibleLeads(filters: {
   category?: string | null
   status?: string | null
+  selectedLeadIds?: string[]
   limit?: number
 }): Promise<{ leads: Lead[]; count: number; error: string | null }> {
   try {
@@ -202,12 +206,16 @@ export async function getCampaignEligibleLeads(filters: {
       .eq('is_eligible', true)
       .order('created_at', { ascending: false })
 
-    if (filters.category && filters.category !== 'ALL' && filters.category.trim() !== '') {
-      query = query.ilike('category', `%${filters.category.trim()}%`)
-    }
+    if (filters.selectedLeadIds && filters.selectedLeadIds.length > 0) {
+      query = query.in('id', filters.selectedLeadIds)
+    } else {
+      if (filters.category && filters.category !== 'ALL' && filters.category.trim() !== '') {
+        query = query.ilike('category', `%${filters.category.trim()}%`)
+      }
 
-    if (filters.status && filters.status !== 'ALL' && filters.status.trim() !== '') {
-      query = query.eq('status', filters.status.trim())
+      if (filters.status && filters.status !== 'ALL' && filters.status.trim() !== '') {
+        query = query.eq('status', filters.status.trim())
+      }
     }
 
     if (filters.limit && filters.limit > 0) {

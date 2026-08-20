@@ -18,9 +18,10 @@ export async function POST(
 
     let category = body.category as string | undefined
     let status = body.status as string | undefined
-    const requestedLimit = typeof body.limit === 'number' ? body.limit : 3
+    let selectedLeadIds = body.selectedLeadIds as string[] | undefined
+    const requestedLimit = typeof body.limit === 'number' ? body.limit : (config.isTestMode ? 10 : 50)
     const limit = config.isTestMode
-      ? Math.min(Math.max(1, requestedLimit), 3)
+      ? Math.min(Math.max(1, requestedLimit), 10)
       : Math.min(Math.max(1, requestedLimit), 50)
 
     if (id !== 'new') {
@@ -28,12 +29,14 @@ export async function POST(
       if (campaign) {
         category = category || campaign.filter_category || undefined
         status = status || campaign.filter_status || undefined
+        selectedLeadIds = selectedLeadIds || campaign.selected_lead_ids || undefined
       }
     }
 
     const { leads, count, error } = await getCampaignEligibleLeads({
       category: category || null,
       status: status || null,
+      selectedLeadIds,
       limit,
     })
 
