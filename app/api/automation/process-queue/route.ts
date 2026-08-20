@@ -14,6 +14,9 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin()
     const config = getAutomationConfig()
 
+    // 0. Recover stale jobs (timeout > 5 mins)
+    await supabase.rpc('recover_stale_campaign_leads', { p_timeout_minutes: 5 })
+
     // 1. Claim exactly ONE pending job atomically
     const { data: claimedRows, error: claimErr } = await supabase.rpc('claim_campaign_lead', { p_limit: 1 })
 
@@ -114,6 +117,12 @@ export async function POST(request: NextRequest) {
         details: { campaign_id: job.campaign_id, destination: targetPhone, provider_message_id: sendRes.messageId },
       })
 
+      // Increment campaign sent_count
+      const { data: currentCamp } = await supabase.from('campaigns').select('sent_count').eq('id', job.campaign_id).single()
+      if (currentCamp) {
+        await supabase.from('campaigns').update({ sent_count: (currentCamp.sent_count || 0) + 1 }).eq('id', job.campaign_id)
+      }
+
       return NextResponse.json({ success: true, status: 'SENT' }, { status: 200 })
     } else {
       // Failure Update
@@ -132,6 +141,14 @@ export async function POST(request: NextRequest) {
         actor: 'queue-processor',
         details: { campaign_id: job.campaign_id, destination: targetPhone, error: sendRes.error },
       })
+
+      // Increment campaign failed_count if fatal
+      if (isFatal) {
+        const { data: currentCamp } = await supabase.from('campaigns').select('failed_count').eq('id', job.campaign_id).single()
+        if (currentCamp) {
+          await supabase.from('campaigns').update({ failed_count: (currentCamp.failed_count || 0) + 1 }).eq('id', job.campaign_id)
+        }
+      }
 
       return NextResponse.json({ success: false, status: 'FAILED', error: sendRes.error }, { status: 500 })
     }

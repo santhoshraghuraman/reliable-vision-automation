@@ -31,7 +31,8 @@ export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loadingCampaigns, setLoadingCampaigns] = useState(true)
   const [categories, setCategories] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<'LIST' | 'WIZARD'>('LIST')
+  const [viewMode, setViewMode] = useState<'LIST' | 'WIZARD' | 'DETAILS'>('LIST')
+  const [activeCampaignData, setActiveCampaignData] = useState<{ campaign: Campaign; queue: any[] } | null>(null)
 
   // Wizard state
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -288,6 +289,23 @@ export default function CampaignsPage() {
     }
   }
 
+  const handleViewDetails = async (camp: Campaign) => {
+    setLoadingPreviews(true)
+    try {
+      const res = await fetch(`/api/campaigns/${camp.id}`)
+      const data = await res.json()
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch details')
+      
+      setActiveCampaignData(data)
+      setViewMode('DETAILS')
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setLoadingPreviews(false)
+    }
+  }
+
   const resetWizard = () => {
     setStep(1)
     setCampaignName('')
@@ -296,6 +314,7 @@ export default function CampaignsPage() {
     setPreviews([])
     setCustomMessages({})
     setActiveCampaignId(null)
+    setActiveCampaignData(null)
     setLaunchResult(null)
     setViewMode('LIST')
   }
@@ -499,15 +518,15 @@ export default function CampaignsPage() {
                                 Continue / Preview →
                               </Button>
                             ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs text-gray-400 hover:text-gray-200"
-                                onClick={() => handleOpenExistingCampaign(camp)}
-                                disabled={loadingPreviews}
-                              >
-                                View Details
-                              </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs text-gray-400 hover:text-gray-200"
+                                  onClick={() => handleViewDetails(camp)}
+                                  disabled={loadingPreviews}
+                                >
+                                  View Details
+                                </Button>
                             )}
                           </td>
                         </tr>
@@ -518,7 +537,7 @@ export default function CampaignsPage() {
               )}
             </div>
           </div>
-        ) : (
+        ) : viewMode === 'WIZARD' ? (
           /* =========================================================================
              3-STEP WIZARD VIEW
              ========================================================================= */
@@ -889,7 +908,68 @@ export default function CampaignsPage() {
               </div>
             )}
           </div>
-        )}
+        ) : viewMode === 'DETAILS' && activeCampaignData ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" onClick={resetWizard} icon={<ArrowLeft className="w-4 h-4" />}>
+                Back to Campaigns
+              </Button>
+            </div>
+            
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <h2 className="text-xl font-bold text-white mb-2">{activeCampaignData.campaign.name}</h2>
+              <div className="flex gap-6 text-sm text-gray-400">
+                <div>Status: <span className="text-white capitalize">{activeCampaignData.campaign.status}</span></div>
+                <div>Target: <span className="text-white">{activeCampaignData.campaign.target_count}</span></div>
+                <div>Sent: <span className="text-emerald-400">{activeCampaignData.campaign.sent_count}</span></div>
+                <div>Failed: <span className="text-red-400">{activeCampaignData.campaign.failed_count}</span></div>
+              </div>
+            </div>
+
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-xl">
+              <div className="px-6 py-4 border-b border-gray-800">
+                <h3 className="text-base font-semibold text-gray-200">Queue & Delivery Status</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-900/50 text-xs uppercase tracking-wider text-gray-500 font-semibold border-b border-gray-800">
+                      <th className="px-6 py-3">Lead</th>
+                      <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3">Attempts</th>
+                      <th className="px-6 py-3">Message ID</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800/50">
+                    {activeCampaignData.queue.map((q, i) => (
+                      <tr key={i} className="hover:bg-gray-800/20 transition-colors">
+                        <td className="px-6 py-3">
+                          <div className="text-sm text-gray-200 font-medium">{q.lead?.name}</div>
+                          <div className="text-xs text-gray-500">{q.lead?.phone}</div>
+                        </td>
+                        <td className="px-6 py-3">
+                          <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                            q.status === 'sent' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            q.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                            'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          }`}>
+                            {q.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 text-sm text-gray-400">
+                          {q.attempts} / {q.max_attempts}
+                        </td>
+                        <td className="px-6 py-3 text-xs text-gray-500 font-mono">
+                          {q.meta_message_id || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )

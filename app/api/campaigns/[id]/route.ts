@@ -17,7 +17,17 @@ export async function GET(
       return NextResponse.json({ error: error || 'Campaign not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ campaign, error: null })
+    // Fetch queue records for this campaign
+    const { getSupabaseAdmin } = await import('@/lib/supabase-server')
+    const supabase = getSupabaseAdmin()
+    
+    const { data: queue } = await supabase
+      .from('campaign_leads')
+      .select('*, lead:leads(name, phone, business, category, status)')
+      .eq('campaign_id', id)
+      .order('scheduled_at', { ascending: true })
+
+    return NextResponse.json({ campaign, queue: queue || [], error: null })
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })
   }
