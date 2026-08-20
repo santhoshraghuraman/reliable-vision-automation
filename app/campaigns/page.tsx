@@ -175,7 +175,7 @@ export default function CampaignsPage() {
           category: isManualSelection ? undefined : (selectedCategory !== 'ALL' ? selectedCategory : undefined),
           status: isManualSelection ? undefined : (selectedStatus !== 'ALL' ? selectedStatus : undefined),
           selectedLeadIds: isManualSelection ? selectedLeadIds : undefined,
-          limit: batchSize,
+          limit: isManualSelection ? selectedLeadIds.length : batchSize,
         }),
       })
 

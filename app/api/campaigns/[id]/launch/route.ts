@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCampaignById, getCampaignEligibleLeads, updateCampaignProgress } from '@/services/campaigns.service'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { isAuthorizedApiRequest } from '@/lib/api-auth'
+import { getAutomationConfig } from '@/services/whatsapp.service'
 
 export async function POST(
   request: NextRequest,
@@ -15,7 +16,10 @@ export async function POST(
     const { id } = await params
     const body = await request.json().catch(() => ({}))
     const requestedMaxLeads = typeof body.maxLeads === 'number' ? body.maxLeads : 100
-    const maxLeads = Math.min(Math.max(1, requestedMaxLeads), 1000) // Allow up to 1000 for queuing
+    const config = getAutomationConfig()
+    const maxLeads = config.isTestMode 
+      ? Math.min(Math.max(1, requestedMaxLeads), 10)
+      : Math.min(Math.max(1, requestedMaxLeads), 1000) // Allow up to 1000 for queuing
 
     const { campaign, error: getErr } = await getCampaignById(id)
     if (getErr || !campaign) {
@@ -37,6 +41,7 @@ export async function POST(
     const { leads } = await getCampaignEligibleLeads({
       category: campaign.filter_category,
       status: campaign.filter_status,
+      selectedLeadIds: campaign.selected_lead_ids,
       limit: maxLeads,
     })
 
