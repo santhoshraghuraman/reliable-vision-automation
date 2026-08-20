@@ -779,6 +779,62 @@ export async function processWhatsAppStatusUpdate(params: {
       },
       actor: 'whatsapp-status-webhook',
     })
+
+    // 4. Sync with campaign_leads (if this message was part of a campaign)
+    const { data: campaignLead } = await supabase
+      .from('campaign_leads')
+      .select('id, campaign_id')
+      .eq('lead_id', updatedMsg.lead_id)
+      .in('status', ['sent', 'pending', 'processing']) // might be stuck in sent but failed asynchronously
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (campaignLead) {
+      // Map message status back to campaign lead status if it's a failure or delivery update
+      let newLeadStatus = null
+      if (dbStatus === 'FAILED') {
+        newLeadStatus = 'failed'
+      } else if (dbStatus === 'DELIVERED') {
+        await supabase.from('campaign_leads').update({ delivered_at: new Date().toISOString() }).eq('id', campaignLead.id)
+      } else if (dbStatus === 'READ') {
+        await supabase.from('campaign_leads').update({ read_at: new Date().toISOString() }).eq('id', campaignLead.id)
+      }
+
+      if (newLeadStatus) {
+        await supabase.from('campaign_leads').update({ 
+          status: newLeadStatus,
+          last_error: errorDetail
+        }).eq('id', campaignLead.id)
+        
+        // Run idempotent aggregate logic for the campaign
+        const [{ count: sentCount }, { count: failedCount }, { count: pendingCount }] = await Promise.all([
+          supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', campaignLead.campaign_id).eq('status', 'sent'),
+          supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', campaignLead.campaign_id).eq('status', 'failed'),
+          supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', campaignLead.campaign_id).in('status', ['pending', 'processing'])
+        ])
+
+        const newCampStatus = (pendingCount === 0) ? 'completed' : 'running'
+        const { data: currentCamp } = await supabase.from('campaigns').select('message_template').eq('id', campaignLead.campaign_id).single()
+        let meta: any = {}
+        if (currentCamp?.message_template) {
+          try { meta = JSON.parse(currentCamp.message_template) } catch {}
+        }
+        meta.sent_count = sentCount || 0
+        meta.failed_count = failedCount || 0
+
+        const updatePayload: Record<string, any> = {
+          sent_count: sentCount || 0,
+          message_template: JSON.stringify(meta),
+          status: newCampStatus
+        }
+        if (newCampStatus === 'completed') {
+          updatePayload.completed_at = new Date().toISOString()
+        }
+
+        await supabase.from('campaigns').update(updatePayload).eq('id', campaignLead.campaign_id)
+      }
+    }
   }
 
   return {

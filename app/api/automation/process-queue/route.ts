@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       await supabase.from('campaign_leads').update({
         status: 'sent',
         completed_at: new Date().toISOString(),
-        meta_message_id: sendRes.messageId
+        meta_message_id: sendRes.providerMessageId || sendRes.messageId
       }).eq('id', job.id)
 
       await supabase.from('leads').update({
