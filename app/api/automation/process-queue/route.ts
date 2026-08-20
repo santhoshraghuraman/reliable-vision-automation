@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Failure Update
       const attemptCount = job.attempts + 1
-      const isFatal = attemptCount >= job.max_attempts
+      const isFatal = attemptCount >= job.max_attempts || (sendRes.error && sendRes.error.includes('Business eligibility payment issue'))
       
       await supabase.from('campaign_leads').update({
         status: isFatal ? 'failed' : 'pending',

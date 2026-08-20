@@ -916,6 +916,19 @@ export default function CampaignsPage() {
               </Button>
             </div>
             
+            {activeCampaignData.queue.some(q => q.last_error?.includes('Business eligibility payment issue')) && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                <div className="mt-0.5">
+                  <ShieldCheck className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-red-400">WhatsApp Delivery Blocked</h3>
+                  <p className="text-xs text-red-300 mt-1">
+                    Meta has blocked this WhatsApp Business account due to an eligibility or payment issue. No real messages will be dispatched until a valid payment method is added in the Meta Business Manager.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <h2 className="text-xl font-bold text-white mb-2">{activeCampaignData.campaign.name}</h2>
               <div className="flex gap-6 text-sm text-gray-400">

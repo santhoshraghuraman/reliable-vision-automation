@@ -203,7 +203,7 @@ export async function sendWhatsAppMessage(params: {
   let metaErrorDetail: string | null = null
   let sendSuccess = true
 
-  if (config.hasWhatsAppCreds) {
+  if (config.hasWhatsAppCreds && !config.isTestMode) {
     try {
       const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
       const whatsappAccessToken =
@@ -303,11 +303,23 @@ export async function sendWhatsAppMessage(params: {
       console.warn('[sendWhatsAppMessage] Meta API network exception:', apiErr)
     }
   } else {
-    // Simulated sandbox mode only when no credentials exist
+    // Simulated sandbox mode (No credentials OR Test Mode enabled)
     providerMessageId = `mock_wa_${Date.now()}`
     deliveryStatus = 'ACCEPTED'
     isSimulated = true
     sendSuccess = true
+    
+    // Automatically cascade fake delivery in sandbox mode for full pipeline testing
+    if (config.isTestMode) {
+      setTimeout(() => {
+        // Mock async delivery webhook
+        processWhatsAppStatusUpdate({
+          providerMessageId: providerMessageId!,
+          status: 'DELIVERED',
+          recipientPhone: normalizedDestination
+        }).catch(console.error)
+      }, 3000)
+    }
   }
 
   // 4. Save to public.messages
