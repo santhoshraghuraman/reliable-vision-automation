@@ -18,8 +18,13 @@ const DEFAULT_TEST_PHONE = '+919597482995'
 export function getAutomationConfig() {
   const isTestMode = process.env.TEST_MODE !== 'false'
   const testPhone = normalizePhone(process.env.WHATSAPP_TEST_PHONE_NUMBER || DEFAULT_TEST_PHONE)
+  
+  const whatsappAccessToken =
+    process.env.WHATSAPP_ACCESS_TOKEN ||
+    process.env.WHATSAPP_TOKEN;
+
   const hasWhatsAppCreds = Boolean(
-    process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID
+    whatsappAccessToken && process.env.WHATSAPP_PHONE_NUMBER_ID
   )
   const hasN8n = Boolean(process.env.N8N_WEBHOOK_URL)
   const hasGemini = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)
@@ -181,7 +186,7 @@ export async function sendWhatsAppMessage(params: {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const { data: recentInbound } = await supabase
     .from('messages')
-    .select('created_at')
+    .select('created_at, provider_message_id')
     .eq('lead_id', leadId)
     .eq('direction', 'INBOUND')
     .gte('created_at', twentyFourHoursAgo)
@@ -201,7 +206,9 @@ export async function sendWhatsAppMessage(params: {
   if (config.hasWhatsAppCreds) {
     try {
       const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
-      const token = process.env.WHATSAPP_ACCESS_TOKEN
+      const whatsappAccessToken =
+        process.env.WHATSAPP_ACCESS_TOKEN ||
+        process.env.WHATSAPP_TOKEN;
       const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`
 
       let customerName = 'Customer'
@@ -224,7 +231,7 @@ export async function sendWhatsAppMessage(params: {
         .replace(/ {5,}/g, ' ')
         .trim();
 
-      const isTemplate = config.isTestMode || !isWindowOpen;
+      const isTemplate = !isWindowOpen;
       const payload = isTemplate
         ? {
             messaging_product: 'whatsapp',
@@ -252,6 +259,11 @@ export async function sendWhatsAppMessage(params: {
             recipient_type: 'individual',
             to: normalizedDestination.replace('+', '').replace(/\D/g, ''),
             type: 'text',
+            ...(recentInbound?.provider_message_id ? {
+              context: {
+                message_id: recentInbound.provider_message_id
+              }
+            } : {}),
             text: { preview_url: false, body: messageText },
           };
 
@@ -260,7 +272,7 @@ export async function sendWhatsAppMessage(params: {
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${whatsappAccessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
