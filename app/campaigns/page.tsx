@@ -960,7 +960,15 @@ export default function CampaignsPage() {
                           {q.attempts} / {q.max_attempts}
                         </td>
                         <td className="px-6 py-3 text-xs text-gray-500 font-mono">
-                          {q.meta_message_id || '-'}
+                          <div className="flex flex-col gap-2">
+                            <span>{q.meta_message_id || '-'}</span>
+                            {q.status === 'failed' && (
+                              <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-md">
+                                <div className="text-red-400 font-semibold mb-1 uppercase tracking-wider text-[10px]">Failure Reason</div>
+                                <div className="text-red-300 whitespace-pre-wrap">{q.last_error || 'Unknown Error'}</div>
+                              </div>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
