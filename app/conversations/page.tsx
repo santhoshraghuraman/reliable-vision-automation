@@ -280,12 +280,7 @@ export default function ConversationsPage() {
         subtitle={`${conversations.length} active WhatsApp chat thread${conversations.length === 1 ? '' : 's'}`}
         actions={
           <div className="flex items-center gap-2">
-            <Link href="/automation">
-              <Button variant="outline" size="sm" className="text-xs border-amber-500/30 text-amber-300 bg-amber-500/10">
-                <Lock className="w-3.5 h-3.5 mr-1" />
-                <span>Test Mode Active</span>
-              </Button>
-            </Link>
+
             <Button
               variant="ghost"
               size="sm"
@@ -672,10 +667,7 @@ export default function ConversationsPage() {
               {/* Quick Reply Composer */}
               <div className="p-3.5 border-t border-gray-800 bg-gray-900/90 space-y-2 shrink-0">
                 <div className="flex items-center justify-between text-[11px] text-gray-400">
-                  <div className="flex items-center gap-1 text-amber-300 font-medium">
-                    <Lock className="w-3 h-3" />
-                    <span>TEST MODE: Outbound locked to test phone number</span>
-                  </div>
+
                   <span className="text-gray-500">Meta WhatsApp Cloud API</span>
                 </div>
 

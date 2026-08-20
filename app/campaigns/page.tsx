@@ -301,12 +301,7 @@ export default function CampaignsPage() {
         subtitle="AI-personalized WhatsApp outreach manager with strict opt-out and safety controls"
         actions={
           <div className="flex items-center gap-3">
-            <Link href="/automation">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                <Lock className="w-3.5 h-3.5" />
-                TEST MODE ACTIVE
-              </span>
-            </Link>
+
             {viewMode === 'LIST' ? (
               <Button
                 variant="primary"
@@ -704,18 +699,7 @@ export default function CampaignsPage() {
             {/* STEP 2: PREVIEW & EDIT MESSAGES */}
             {step === 2 && (
               <div className="space-y-6">
-                {/* Safety Banner */}
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
-                  <Lock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wide">
-                      Safety Guarantee — Test Mode Active
-                    </h4>
-                    <p className="text-xs text-amber-200/80 mt-0.5">
-                      All outbound dispatches will be securely sent to your verified test recipient number. Real customer numbers will NOT be messaged. Review and edit the AI-generated pitches below before giving final dispatch approval.
-                    </p>
-                  </div>
-                </div>
+
 
                 {/* Previews List */}
                 <div className="space-y-4">

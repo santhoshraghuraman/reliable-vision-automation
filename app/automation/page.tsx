@@ -218,36 +218,7 @@ export default function AutomationPage() {
       />
 
       <div className="flex-1 p-6 space-y-6">
-        {/* TEST MODE Safety Warning Banner */}
-        <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400 shrink-0 mt-0.5">
-              <ShieldAlert className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-amber-300">
-                  TEST MODE ACTIVE — Strict Safety Lock
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500 text-gray-950">
-                  Safe Sandbox
-                </span>
-              </div>
-              <p className="text-xs text-amber-200/80 mt-1 max-w-2xl leading-relaxed">
-                All 668 CRM leads are completely protected from live messaging. Outbound messages are restricted strictly to your configured test phone number (
-                <span className="font-mono font-bold text-white">{status?.testPhoneNumber || '+919597482995'}</span>
-                ).
-              </p>
-            </div>
-          </div>
 
-          <div className="px-3.5 py-2 bg-gray-900/90 border border-amber-500/30 rounded-xl text-right shrink-0">
-            <span className="text-[10px] uppercase font-bold text-gray-400 block">Outbound Lock</span>
-            <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1">
-              <Lock className="w-3 h-3" /> Test Phone Only
-            </span>
-          </div>
-        </div>
 
         {/* Integration Status Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
