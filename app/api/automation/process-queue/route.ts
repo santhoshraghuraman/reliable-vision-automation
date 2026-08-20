@@ -117,11 +117,32 @@ export async function POST(request: NextRequest) {
         details: { campaign_id: job.campaign_id, destination: targetPhone, provider_message_id: sendRes.messageId },
       })
 
-      // Increment campaign sent_count
-      const { data: currentCamp } = await supabase.from('campaigns').select('sent_count').eq('id', job.campaign_id).single()
-      if (currentCamp) {
-        await supabase.from('campaigns').update({ sent_count: (currentCamp.sent_count || 0) + 1 }).eq('id', job.campaign_id)
+      // Aggregate campaign counters dynamically
+      const [{ count: sentCount }, { count: failedCount }, { count: pendingCount }] = await Promise.all([
+        supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', job.campaign_id).eq('status', 'sent'),
+        supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', job.campaign_id).eq('status', 'failed'),
+        supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', job.campaign_id).in('status', ['pending', 'processing'])
+      ])
+
+      const newStatus = (pendingCount === 0) ? 'completed' : 'running'
+      const { data: currentCamp } = await supabase.from('campaigns').select('message_template').eq('id', job.campaign_id).single()
+      let meta: any = {}
+      if (currentCamp?.message_template) {
+        try { meta = JSON.parse(currentCamp.message_template) } catch {}
       }
+      meta.sent_count = sentCount || 0
+      meta.failed_count = failedCount || 0
+
+      const updatePayload: Record<string, any> = {
+        sent_count: sentCount || 0,
+        message_template: JSON.stringify(meta),
+        status: newStatus
+      }
+      if (newStatus === 'completed') {
+        updatePayload.completed_at = new Date().toISOString()
+      }
+
+      await supabase.from('campaigns').update(updatePayload).eq('id', job.campaign_id)
 
       return NextResponse.json({ success: true, status: 'SENT' }, { status: 200 })
     } else {
@@ -142,13 +163,32 @@ export async function POST(request: NextRequest) {
         details: { campaign_id: job.campaign_id, destination: targetPhone, error: sendRes.error },
       })
 
-      // Increment campaign failed_count if fatal
-      if (isFatal) {
-        const { data: currentCamp } = await supabase.from('campaigns').select('failed_count').eq('id', job.campaign_id).single()
-        if (currentCamp) {
-          await supabase.from('campaigns').update({ failed_count: (currentCamp.failed_count || 0) + 1 }).eq('id', job.campaign_id)
-        }
+      // Aggregate campaign counters dynamically
+      const [{ count: sentCount }, { count: failedCount }, { count: pendingCount }] = await Promise.all([
+        supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', job.campaign_id).eq('status', 'sent'),
+        supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', job.campaign_id).eq('status', 'failed'),
+        supabase.from('campaign_leads').select('*', { count: 'exact', head: true }).eq('campaign_id', job.campaign_id).in('status', ['pending', 'processing'])
+      ])
+
+      const newStatus = (pendingCount === 0) ? 'completed' : 'running'
+      const { data: currentCamp } = await supabase.from('campaigns').select('message_template').eq('id', job.campaign_id).single()
+      let meta: any = {}
+      if (currentCamp?.message_template) {
+        try { meta = JSON.parse(currentCamp.message_template) } catch {}
       }
+      meta.sent_count = sentCount || 0
+      meta.failed_count = failedCount || 0
+
+      const updatePayload: Record<string, any> = {
+        sent_count: sentCount || 0,
+        message_template: JSON.stringify(meta),
+        status: newStatus
+      }
+      if (newStatus === 'completed') {
+        updatePayload.completed_at = new Date().toISOString()
+      }
+
+      await supabase.from('campaigns').update(updatePayload).eq('id', job.campaign_id)
 
       return NextResponse.json({ success: false, status: 'FAILED', error: sendRes.error }, { status: 500 })
     }
